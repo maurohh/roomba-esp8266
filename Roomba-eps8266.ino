@@ -13,8 +13,9 @@
 String roombotVersion = "0.3.7";
 String WMode = "1";
 
-#define SERIAL_RX     D5  // pin for SoftwareSerial RX
-#define SERIAL_TX     D6  // pin for SoftwareSerial TX
+#define Wake_Pin      16
+#define SERIAL_RX     14  // pin for SoftwareSerial RX
+#define SERIAL_TX     12 // pin for SoftwareSerial TX
 SoftwareSerial mySerial(SERIAL_RX, SERIAL_TX); // (RX, TX. inverted, buffer)
 
 
@@ -40,9 +41,9 @@ String formatBytes(size_t bytes) {
 }
 
 // WIFI
-String ssid    = "ssid";
-String password = "password";
-String espName    = "Roombot";
+String ssid    = "WIFI-NETWORK";
+String password = "WIFI-PASS";
+String espName    = "roomba1";
 
 // webserver
 ESP8266WebServer  server(80);
@@ -50,13 +51,13 @@ MDNSResponder   mdns;
 WiFiClient client;
 
 // AP mode when WIFI not available
-const char *APssid = "Roombot";
-const char *APpassword = "thereisnospoon";
+const char *APssid = "roombawifi";
+const char *APpassword = "roombawifipass";
 
 
 
 // Pimatic settings
-String host   = "192.168.x.x";
+String host   = "192.168.1.23";
 const int httpPort    = 80;
 String Username     = "admin";
 String Password     = "password";
@@ -92,7 +93,7 @@ String inputBodyStart   =  "<form action='' method='POST'><div class='panel pane
 String inputBodyName    =  "<div class='form-group'><div class='input-group'><span class='input-group-addon' id='basic-addon1'>";
 String inputBodyPOST    =  "</span><input type='text' name='";
 String inputBodyClose   =  "' class='form-control' aria-describedby='basic-addon1'></div></div>";
-String roombacontrol     =  "<a href='/roombastart'<button type='button' class='btn btn-default'><span class='glyphicon glyphicon-play' aria-hidden='true'></span> Start</button></a><a href='/roombadock'<button type='button' class='btn btn-default'><span class='glyphicon glyphicon-home' aria-hidden='true'></span> Dock</button></a></div>";
+String roombacontrol     =  "<a href='/roombastart'<button type='button' class='btn btn-default'><span class='glyphicon glyphicon-play' aria-hidden='true'></span> Start</button></a><a href='/roombastop'<button type='button' class='btn btn-default'><span class='glyphicon glyphicon-stop' aria-hidden='true'></span> Stop</button></a></div><a href='/roombaspot'<button type='button' class='btn btn-default'><span class='glyphicon glyphicon-search' aria-hidden='true'></span> Spot</button></a></div><a href='/roombadock'<button type='button' class='btn btn-default'><span class='glyphicon glyphicon-home' aria-hidden='true'></span> Dock</button></a></div>";
 
 
 // ROOT page
@@ -131,6 +132,9 @@ void setup(void)
   mySerial.begin(115200);
   pinMode(SERIAL_RX, INPUT);
   pinMode(SERIAL_TX, OUTPUT);
+  pinMode(Wake_Pin, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(Wake_Pin,LOW);
   // Check if SPIFFS is OK
   if (!SPIFFS.begin())
   {
@@ -204,6 +208,8 @@ void setup(void)
   server.on("/delete", handleFileDelete);
   server.on("/roombastart", handle_roomba_start);
   server.on("/roombadock", handle_roomba_dock);
+  server.on("/roombaspot", handle_roomba_spot);
+  server.on("/roombastop", handle_roomba_stop);
   server.on("/restart", handle_esp_restart);
 
 
@@ -520,8 +526,18 @@ void handle_filemanager_ajax()
   }
 }
 
+void handle_roomba_wake(){
+  digitalWrite(Wake_Pin, HIGH);
+  delay(100);
+  digitalWrite(Wake_Pin, LOW);
+  delay(500);
+  digitalWrite(Wake_Pin, HIGH);
+  delay(100);
+}
+
 void handle_roomba_start()
 {
+  handle_roomba_wake();
   Serial.println("Starting");
   mySerial.write(128);
   delay(50);
@@ -534,12 +550,37 @@ void handle_roomba_start()
 
 void handle_roomba_dock()
 {
+  handle_roomba_wake();
   mySerial.write(128);
   delay(50);
   mySerial.write(131);
   delay(50);
   mySerial.write(143);
   Serial.println("Thank you for letting me rest, going home master");
+  handle_root();
+}
+
+void handle_roomba_spot()
+{
+  handle_roomba_wake();
+  mySerial.write(128);
+  delay(50);
+  mySerial.write(131);
+  delay(50);
+  mySerial.write(134);
+  Serial.println("Spot cleaning");
+  handle_root();
+}
+
+void handle_roomba_stop()
+{
+  handle_roomba_wake();
+  mySerial.write(128);
+  delay(50);
+  mySerial.write(131);
+  delay(50);
+  mySerial.write(133);
+  Serial.println("STOP");
   handle_root();
 }
 
